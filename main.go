@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	goconf "github.com/akrennmair/goconf"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+
+	goconf "github.com/akrennmair/goconf"
 )
 
 type Backend struct {
@@ -64,6 +65,18 @@ func CopyBidir(conn1 io.ReadWriteCloser, rw1 *bufio.ReadWriter, conn2 io.ReadWri
 	<-finished
 }
 
+func getPrefix(url string) (string, string) {
+	if url == "/" {
+		return "", url
+	} else {
+		array := strings.Split(url, "/")
+		prefix := array[1]
+		base_url := strings.Join(array[2:len(array)], "/")
+		new_url := fmt.Sprintf("/%s", base_url)
+		return prefix, new_url
+	}
+}
+
 type RequestHandler struct {
 	Transport    *http.Transport
 	Frontend     *Frontend
@@ -75,6 +88,9 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//log.Printf("incoming request: %#v", *r)
 	r.RequestURI = ""
 	r.URL.Scheme = "http"
+	var prefix string
+	prefix, r.URL.Path = getPrefix(r.URL.Path)
+	fmt.Printf("Prefix is %s\n", prefix)
 
 	if h.Frontend.AddForwarded {
 		remote_addr := r.RemoteAddr
@@ -93,7 +109,12 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.URL.Host = backend.ConnectString
 		h.Backends <- backend
 	} else {
-		backend_list := h.HostBackends[r.Host]
+		var backend_list chan *Backend
+		if prefix == "" {
+			backend_list = h.HostBackends[r.Host]
+		} else {
+			backend_list = h.HostBackends[prefix]
+		}
 		if backend_list == nil {
 			if len(h.Frontend.Backends) == 0 {
 				http.Error(w, "no suitable backend found for request", http.StatusServiceUnavailable)
