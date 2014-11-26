@@ -110,7 +110,7 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if backend_list == nil {
 			if len(h.Frontend.Backends) == 0 {
-				http.Error(w, "no suitable backend found for request", http.StatusServiceUnavailable)
+				http.Error(w, "You do not have access to iPython, please contact operations@hedgeye.com", http.StatusServiceUnavailable)
 				return
 			} else {
 				backend := <-h.Backends
