@@ -65,18 +65,6 @@ func CopyBidir(conn1 io.ReadWriteCloser, rw1 *bufio.ReadWriter, conn2 io.ReadWri
 	<-finished
 }
 
-func getPrefix(url string) (string, string) {
-	if url == "/" {
-		return "", url
-	} else {
-		array := strings.Split(url, "/")
-		prefix := array[1]
-		base_url := strings.Join(array[2:len(array)], "/")
-		new_url := fmt.Sprintf("/%s", base_url)
-		return prefix, new_url
-	}
-}
-
 type RequestHandler struct {
 	Transport    *http.Transport
 	Frontend     *Frontend
@@ -88,9 +76,12 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//log.Printf("incoming request: %#v", *r)
 	r.RequestURI = ""
 	r.URL.Scheme = "http"
-	var prefix string
-	prefix, r.URL.Path = getPrefix(r.URL.Path)
-	fmt.Printf("Prefix is %s\n", prefix)
+
+	log.Printf("Handler %+v\n", h)
+	user_name, cookie_err := r.Cookie("hedgeye_user_name")
+	uname := user_name.Value
+	backend_name := strings.Replace(strings.ToLower(uname), "+", "", -1)
+	log.Printf("Cookie status %#v, %#v %#v", cookie_err, uname, backend_name)
 
 	if h.Frontend.AddForwarded {
 		remote_addr := r.RemoteAddr
@@ -110,10 +101,12 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.Backends <- backend
 	} else {
 		var backend_list chan *Backend
-		if prefix == "" {
-			backend_list = h.HostBackends[r.Host]
+		if cookie_err == nil {
+			// backend_list = h.HostBackends[r.Host]
+			backend_list = h.HostBackends[backend_name]
 		} else {
-			backend_list = h.HostBackends[prefix]
+			// backend_list = h.HostBackends[prefix]
+			backend_list = h.HostBackends[r.Host]
 		}
 		if backend_list == nil {
 			if len(h.Frontend.Backends) == 0 {
@@ -126,6 +119,7 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			backend := <-backend_list
+			log.Printf(backend.ConnectString)
 			r.URL.Host = backend.ConnectString
 			backend_list <- backend
 		}
