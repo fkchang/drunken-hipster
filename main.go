@@ -79,9 +79,12 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Handler %+v\n", h)
 	user_name, cookie_err := r.Cookie("hedgeye_user_name")
-	uname := user_name.Value
-	backend_name := strings.Replace(strings.ToLower(uname), "+", "", -1)
-	log.Printf("Cookie status %#v, %#v %#v", cookie_err, uname, backend_name)
+	var backend_name string
+	if cookie_err != nil {
+		uname := user_name.Value
+		backend_name = strings.Replace(strings.ToLower(uname), "+", "", -1)
+		log.Printf("Cookie status %#v, %#v %#v", cookie_err, uname, backend_name)
+	}
 
 	if h.Frontend.AddForwarded {
 		remote_addr := r.RemoteAddr
