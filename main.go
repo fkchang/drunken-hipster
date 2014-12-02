@@ -104,7 +104,7 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.Backends <- backend
 	} else {
 		var backend_list chan *Backend
-		if cookie_err == nil {
+		if cookie_err != nil {
 			// backend_list = h.HostBackends[r.Host]
 			backend_list = h.HostBackends[backend_name]
 		} else {
